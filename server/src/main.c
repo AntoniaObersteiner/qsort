@@ -10,13 +10,188 @@
  */
 #include <stdio.h>
 #include <unistd.h>
+#include <stdbool.h>
+
+
+void swap(long * a, long * b);
+void print_values(long * values, size_t length, size_t start, size_t stop, long current);
+void _qsort(long * values, size_t start, size_t stop);
+void qsort(long * values, size_t length);
+void random_values(long * values, size_t length);
+bool is_sorted(long * values, size_t length);
+long fib2(long n);
+long fib1(long n);
+
+#define FIB_INPUT		(1l << 30)
+#define FIB_REPS		(1l <<  3)
+#define VALUES_LENGTH	(1l << 14)
+#define QSORT_REPS		(1l <<  5)
+long VALUES[VALUES_LENGTH];
+
+void swap(long * a, long * b) {
+	long temp = *a;
+	*a = *b;
+	*b = temp;
+}
+
+#if DEBUG
+void print_values(long * values, size_t length, size_t start, size_t stop, long current) {
+	for (size_t i = 0; i < length; i++) {
+		if (start <= i && i < stop) {
+			printf("%3ld ", values[i]);
+		} else {
+			printf("    ");
+		}
+	}
+	printf("curr = %3ld\n", current);
+}
+#else
+void print_values(long *, size_t, size_t, size_t, long) {}
+#endif
+
+void _qsort(long * values, size_t start, size_t stop) {
+	if (stop - start <= 1)
+		return;
+	if (stop - start == 2) {
+		if (values[start] <= values[start+1])
+			return;
+		swap(&values[start], &values[start + 1]);
+		return;
+	}
+
+	long pivot = values[start];
+	long current = values[start + 1];
+	print_values(values, VALUES_LENGTH, start, stop, current);
+
+	// where to put to-be-sorted elements
+	size_t front = start;		// when they're <= pivot, they go to a backwards-moving front end
+	size_t back  = stop  - 1;	// when they're >  pivot, they go to a  forwards-moving back end
+
+	/** memory layout of values from start to stop at this point in the program
+	 * start
+	 * |     front reads from here (front + 2)
+	 * |     |        back
+	 * |     |        |
+	 * v  a  l  u  e  s
+	 * |  |           |
+	 * |  |           stop
+	 * |  original was moved into current first
+	 * |  thus writable
+	 * |
+	 * original stored in pivot
+	 * thus, writable as front
+	 */
+	while (back - front > 1) {
+		print_values(values, VALUES_LENGTH, start, stop, current);
+		if (current > pivot) {
+			swap(&current, &values[back]);
+			back--;
+		} else {
+			values[front] = current;
+			current = values[front + 2];
+			front++;
+		}
+	}
+
+	/** memory layout of values from start to stop at this point in the program
+	 *
+	 *       back points here
+	 *       thus writable
+	 *          |
+	 * v  a  l  u  e  s
+	 * |     |
+	 * |     |
+	 * |  front points here
+	 * |  thus writable
+	 * |
+	 * original stored in pivot
+	 * must be placed at front or front + 1
+	 */
+
+	if (current > pivot) {
+		values[front + 1] = current;
+	} else {
+		values[front] = current;
+		// make sure front points to the value that's already sorted
+		front++;
+	}
+	values[front] = pivot;
+
+	print_values(values, VALUES_LENGTH, start, stop, current);
+	_qsort(values, start, front);
+	_qsort(values, front + 1, stop);
+	print_values(values, VALUES_LENGTH, start, stop, current);
+}
+
+void qsort(long * values, size_t length) {
+	_qsort(values, 0, length);
+}
+
+void random_values(long* values, size_t length) {
+	static long current = 0x283745034;
+	for (size_t i = 0; i < length; i++) {
+		current = current >> 8;
+		current = current * current;
+		current = current >> 8;
+		values[i] = current & 0xff;
+	}
+}
+bool is_sorted(long* values, size_t length) {
+	for (size_t i = 1; i < length; i++) {
+		if (values[i + 1] < values[i])
+			return false;
+	}
+	return true;
+}
+
+long fib2(long n) {
+	long a = 0;
+	long b = 1;
+
+	for (long i = 0; i < n; i++) {
+		long d = a + b;
+		a = b;
+		b = d;
+	}
+	return a;
+}
+
+long fib1(long n) {
+	return fib2(n);
+}
 
 int
-main(void)
-{
-  for (;;)
-    {
-      puts("Hello World!");
-      sleep(1);
-    }
+main(void) {
+	for (;;) {
+		bool sorted;
+		for (int i = 0; i < QSORT_REPS; i++) {
+			random_values		(&(VALUES[0]), VALUES_LENGTH);
+			qsort				(&(VALUES[0]), VALUES_LENGTH);
+			sorted = is_sorted	(&(VALUES[0]), VALUES_LENGTH);
+		}
+ 		if (sorted) {
+			printf(
+				">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+				">>>>>>>>>>>> successfully sorted a few values <<<<<<<<<<<<<<\n"
+				">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+			);
+		} else {
+			printf(
+				">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+				">>>>>>>>> shamefully failed sorting a few values <<<<<<<<<<<\n"
+				">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+			);
+		}
+
+		long f;
+		for (int i = 0; i < FIB_REPS; i++) {
+			f = fib1(FIB_INPUT);
+		}
+		printf(
+			">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+			">>>>>>>>>>>> fib(%11ld) = %20ld! <<<<<<<<<<<<<<\n"
+			">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n",
+			FIB_INPUT, f
+		);
+	}
 }
