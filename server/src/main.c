@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/mman.h>
 
 
 void swap(long * a, long * b);
@@ -162,7 +163,20 @@ long fib1(long n) {
 
 int
 main(void) {
-	for (;;) {
+	for (int i = 0;; i++) {
+
+		#if 0
+		// some testing around with user space mapping,
+		// Insert_ok does not yet yield a readable user side experience :/
+		if (i > 1) {
+			const long unsigned * const BTB = 0x0000000ffee0000;
+			const long unsigned * btb = BTB;
+			for (int b = 0; b < 20; b++) {
+				printf("btb @%p: %16lx\n", btb, *(btb++));
+			}
+		}
+		#endif
+
 		bool sorted;
 		for (int i = 0; i < QSORT_REPS; i++) {
 			random_values		(&(VALUES[0]), VALUES_LENGTH);
