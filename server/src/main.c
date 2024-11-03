@@ -187,6 +187,15 @@ main(void) {
 			printf("%s is at ?, dl finds it at %p\n", function_name, dl_function);
 		}
 	}
+
+	/*
+	printf("using pseudo-handle RTLD_NEXT\n");
+	void * dl_function = dlsym(RTLD_NEXT, function_name);
+	if (error = dlerror()) { printf("error (%s): %s\n", function_name, error); } else {
+		printf("%s is at ?, dl finds it at %p\n", function_name, dl_function);
+	}
+	*/
+
 	for (int i = 0;; i++) {
 
 		#if 0
