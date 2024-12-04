@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <sys/mman.h>
 #include <dlfcn.h>
+#include <l4/sys/kip.h>
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
@@ -202,9 +203,14 @@ main(void) {
 		// some testing around with user space mapping,
 		// Insert_ok does not yet yield a readable user side experience :/
 		if (i > 1) {
-			const long unsigned * const BTB = 0x0000000ffee0000;
+			// l4_kernel_info_t * kip = l4_kip();
+			const long unsigned * const Tbuf = 0xffffffff00200000;
+			const long unsigned * const BTB  = 0xffffffff00100000;
+			const long unsigned * const UBTB = 0x0000000000006000;
 			const long unsigned * btb = BTB;
-			for (int b = 0; b < 20; b++) {
+			const int read_length = 20;
+			printf("reading %d words, starting from %p\n", read_length, btb);
+			for (int b = 0; b < read_length; b++) {
 				printf("btb @%p: %16lx\n", btb, *(btb++));
 			}
 		}
