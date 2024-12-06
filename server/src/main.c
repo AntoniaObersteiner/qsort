@@ -169,22 +169,22 @@ main(void) {
 	dlerror(); // clear error
 	printf("started\n");
 	void * main_program_handle = dlopen(NULL, RTLD_LAZY);
-	if (error = dlerror()) { printf("error (main): %s\n", error); } else {
+	if (error = dlerror()) { printf("dl error (main): %s\n", error); } else {
 		printf("main program handle: %p\n", main_program_handle);
 		void * dl_printf = dlsym(main_program_handle, "printf");
-		if (error = dlerror()) { printf("error (printf): %s\n", error); } else {
+		if (error = dlerror()) { printf("dl error (printf): %s\n", error); } else {
 			printf("printf is at %p, dl finds it at %p\n", &printf, dl_printf);
 		}
 	}
 
 	dlerror();
-	const char * lib_name = "libdl.so";
+	const char * lib_name = "rom/libdl.so";
 	const char * function_name = "dlerror";
 	void * handle = dlopen(lib_name, RTLD_LAZY);
-	if (error = dlerror()) { printf("error (%s): %s\n", lib_name, error); } else {
+	if (error = dlerror()) { printf("dl error (%s): %s\n", lib_name, error); } else {
 		printf("handle: %p\n", handle);
 		void * dl_function = dlsym(handle, function_name);
-		if (error = dlerror()) { printf("error (%s): %s\n", function_name, error); } else {
+		if (error = dlerror()) { printf("dl error (%s): %s\n", function_name, error); } else {
 			printf("%s is at ?, dl finds it at %p\n", function_name, dl_function);
 		}
 	}
@@ -192,7 +192,7 @@ main(void) {
 	/*
 	printf("using pseudo-handle RTLD_NEXT\n");
 	void * dl_function = dlsym(RTLD_NEXT, function_name);
-	if (error = dlerror()) { printf("error (%s): %s\n", function_name, error); } else {
+	if (error = dlerror()) { printf("dl error (%s): %s\n", function_name, error); } else {
 		printf("%s is at ?, dl finds it at %p\n", function_name, dl_function);
 	}
 	*/
