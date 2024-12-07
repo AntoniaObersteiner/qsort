@@ -4,6 +4,6 @@ L4DIR		?= $(PKGDIR)/../..
 TARGET		= qsort
 SRC_C		= main.c
 
-LIBS     += -ldl -l4re-c-util
+LIBS     += -ldl
 
 include $(L4DIR)/mk/prog.mk
