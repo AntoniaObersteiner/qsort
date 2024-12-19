@@ -17,7 +17,7 @@
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
-void _qsort(long * values, size_t start, size_t stop);
+void my_qsort(long * values, size_t start, size_t stop);
 void qsort(long * values, size_t length);
 void random_values(long * values, size_t length);
 bool is_sorted(long * values, size_t length);
@@ -51,7 +51,7 @@ void print_values(long * values, size_t length, size_t start, size_t stop, long 
 void print_values(long *, size_t, size_t, size_t, long) {}
 #endif
 
-void _qsort(long * values, size_t start, size_t stop) {
+void my_qsort(long * values, size_t start, size_t stop) {
 	if (stop - start <= 1)
 		return;
 	if (stop - start == 2) {
@@ -120,13 +120,13 @@ void _qsort(long * values, size_t start, size_t stop) {
 	values[front] = pivot;
 
 	print_values(values, VALUES_LENGTH, start, stop, current);
-	_qsort(values, start, front);
-	_qsort(values, front + 1, stop);
+	my_qsort(values, start, front);
+	my_qsort(values, front + 1, stop);
 	print_values(values, VALUES_LENGTH, start, stop, current);
 }
 
 void qsort(long * values, size_t length) {
-	_qsort(values, 0, length);
+	my_qsort(values, 0, length);
 }
 
 void random_values(long* values, size_t length) {
