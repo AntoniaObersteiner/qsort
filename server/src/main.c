@@ -17,6 +17,7 @@
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
+void so_qsort(long * values, size_t start, size_t stop);
 void my_qsort(long * values, size_t start, size_t stop);
 void qsort(long * values, size_t length);
 void random_values(long * values, size_t length);
@@ -51,6 +52,39 @@ void print_values(long * values, size_t length, size_t start, size_t stop, long 
 void print_values(long *, size_t, size_t, size_t, long) {}
 #endif
 
+void so_qsort(long * values, size_t start, size_t stop) {
+	if (start >= stop)
+		return;
+
+	long current = values[start];
+	long pivot = values[stop];
+
+	// where to put to-be-sorted elements
+	size_t front = start;
+	size_t back  = stop;
+
+	while (front + 1 < back) {
+		if (current >= pivot) {
+			values[back] = current;
+			current = values[--back];
+		} else {
+			values[front] = current;
+			current = values[++front];
+		}
+	}
+
+	if (current >= pivot) {
+		values[front] = pivot;
+		values[back] = current;
+	} else {
+		values[front] = current;
+		values[back] = pivot;
+	}
+
+	so_qsort(values, start, front);
+	so_qsort(values, back, stop);
+}
+
 void my_qsort(long * values, size_t start, size_t stop) {
 	if (stop - start <= 1)
 		return;
@@ -60,6 +94,11 @@ void my_qsort(long * values, size_t start, size_t stop) {
 		swap(&values[start], &values[start + 1]);
 		return;
 	}
+
+	/*
+	size_t middle = start + (stop - start) / 2;
+	swap(values + start, values + middle);
+	*/
 
 	long pivot = values[start];
 	long current = values[start + 1];
@@ -126,7 +165,8 @@ void my_qsort(long * values, size_t start, size_t stop) {
 }
 
 void qsort(long * values, size_t length) {
-	my_qsort(values, 0, length);
+	so_qsort(values, 0, length - 1);
+	// my_qsort(values, 0, length);
 }
 
 void random_values(long* values, size_t length) {
