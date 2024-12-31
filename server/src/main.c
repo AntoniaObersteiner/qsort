@@ -27,8 +27,8 @@ long fib1(long n);
 
 #define FIB_INPUT		(1l << 30)
 #define FIB_REPS		(1l <<  3)
-#define VALUES_LENGTH	(1l << 14)
-#define QSORT_REPS		(1l <<  5)
+#define VALUES_LENGTH	(1l <<  8)
+#define QSORT_REPS		(1l << 11)
 long VALUES[VALUES_LENGTH];
 
 void swap(long * a, long * b) {
@@ -53,6 +53,7 @@ void print_values(long *, size_t, size_t, size_t, long) {}
 #endif
 
 void so_qsort(long * values, size_t start, size_t stop) {
+	// https://codereview.stackexchange.com/questions/283932/in-place-recursive-quick-sort-in-c
 	if (start >= stop)
 		return;
 
