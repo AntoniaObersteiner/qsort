@@ -25,10 +25,10 @@ bool is_sorted(long * values, size_t length);
 long fib2(long n);
 long fib1(long n);
 
-#define FIB_INPUT		(1l << 30)
+#define FIB_INPUT		(1l << 32)
 #define FIB_REPS		(1l <<  3)
-#define VALUES_LENGTH	(1l <<  8)
-#define QSORT_REPS		(1l << 11)
+#define VALUES_LENGTH	(1l << 13)
+#define QSORT_REPS		(1l <<  3)
 long VALUES[VALUES_LENGTH];
 
 void swap(long * a, long * b) {
@@ -245,7 +245,7 @@ int main(void) {
 			random_values		(&(VALUES[0]), VALUES_LENGTH);
 			qsort				(&(VALUES[0]), VALUES_LENGTH);
 			sorted = is_sorted	(&(VALUES[0]), VALUES_LENGTH);
-			printf("sorted.\n");
+			printf("sorted %d.\n", i);
 		}
  		if (sorted) {
 			printf(
@@ -264,7 +264,7 @@ int main(void) {
 		long f;
 		for (int i = 0; i < FIB_REPS; i++) {
 			f = fib1(FIB_INPUT);
-			printf("fibbed.\n");
+			printf("fibbed %d.\n", i);
 		}
 		printf(
 			">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
