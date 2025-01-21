@@ -245,6 +245,7 @@ int main(void) {
 			random_values		(&(VALUES[0]), VALUES_LENGTH);
 			qsort				(&(VALUES[0]), VALUES_LENGTH);
 			sorted = is_sorted	(&(VALUES[0]), VALUES_LENGTH);
+			printf("sorted.\n");
 		}
  		if (sorted) {
 			printf(
@@ -263,6 +264,7 @@ int main(void) {
 		long f;
 		for (int i = 0; i < FIB_REPS; i++) {
 			f = fib1(FIB_INPUT);
+			printf("fibbed.\n");
 		}
 		printf(
 			">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
