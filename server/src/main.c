@@ -14,6 +14,9 @@
 #include <sys/mman.h>
 #include <dlfcn.h>
 #include <l4/sys/kip.h>
+#include <l4/re/env.h>
+#include <l4/util/util.h>
+#include <l4/util/rdtsc.h>
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
@@ -238,39 +241,49 @@ void dl_stuff() {
 	*/
 }
 
-int main(void) {
-	for (int i = 0;; i++) {
-		bool sorted;
-		for (int i = 0; i < QSORT_REPS; i++) {
-			random_values		(&(VALUES[0]), VALUES_LENGTH);
-			qsort				(&(VALUES[0]), VALUES_LENGTH);
-			sorted = is_sorted	(&(VALUES[0]), VALUES_LENGTH);
-			printf("sorted %d.\n", i);
-		}
- 		if (sorted) {
-			printf(
-				">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
-				">>>>>>>>>>>> successfully sorted a few values <<<<<<<<<<<<<<\n"
-				">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
-			);
-		} else {
-			printf(
-				">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
-				">>>>>>>>> shamefully failed sorting a few values <<<<<<<<<<<\n"
-				">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
-			);
-		}
+void do_sort(void) {
+	random_values           (&(VALUES[0]), VALUES_LENGTH);
+	qsort                   (&(VALUES[0]), VALUES_LENGTH);
+	bool sorted = is_sorted	(&(VALUES[0]), VALUES_LENGTH);
+	if (!sorted) printf(
+		">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+		">>>>>>>>> shamefully failed sorting a few values <<<<<<<<<<<\n"
+		">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+	);
+}
+volatile int result_dump;
 
-		long f;
-		for (int i = 0; i < FIB_REPS; i++) {
-			f = fib1(FIB_INPUT);
-			printf("fibbed %d.\n", i);
-		}
-		printf(
-			">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
-			">>>>>>>>>>>> fib(%11ld) = %20ld! <<<<<<<<<<<<<<\n"
-			">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n",
-			FIB_INPUT, f
-		);
+int main (void) {
+	l4_cpu_time_t time_main = l4_rdtsc ();
+	// this task is modified so it runs between second 1 and 10
+	// (where the backtracer does its backtracing).
+	// it prints how much time it needed to reflect the backtracer's use of cpu.
+
+	// might not be necessary if backtracer also else does it, but won't hurt
+	l4_calibrate_tsc(l4re_kip());
+
+	l4_usleep(1200000); // 1.2 seconds, backtracer sleeps for 1.0
+
+	l4_cpu_time_t time_start = l4_rdtsc ();
+
+	for (int i = 0; i < 1000; i++) {
+		do_sort();
+		result_dump = fib1(FIB_INPUT);
+		printf("step %8d\n", i);
 	}
+
+	l4_cpu_time_t time_stop = l4_rdtsc ();
+
+	l4_uint64_t us_main  = l4_tsc_to_us (time_main);
+	l4_uint64_t us_start = l4_tsc_to_us (time_start);
+	l4_uint64_t us_stop  = l4_tsc_to_us (time_stop);
+
+	printf("abs time main %16llx us\n", us_main);
+	printf("=!=!= [start] %16llx us\n", us_start);
+	printf("=!=!= [stop]  %16llx us\n", us_stop);
+	printf("start to stop %16llx us\n", us_stop  - us_start);
+
+	printf("      [start] %16.3f s\n", (double) (us_start - us_main)  / 1000000.0);
+	printf("      [stop]  %16.3f s\n", (double) (us_stop  - us_main)  / 1000000.0);
+	printf("start to stop %16.3f s\n", (double) (us_stop  - us_start) / 1000000.0);
 }
