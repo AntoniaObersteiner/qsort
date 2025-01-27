@@ -204,7 +204,7 @@ long fib2(long n) {
 }
 
 long fib1(long n) {
-	return fib2(n);
+	printf("fib(%ld) == %ld\n", n, fib2(n));
 }
 
 void dl_stuff() {
@@ -257,11 +257,11 @@ volatile int result_dump;
 int main (void) {
 	l4_uint64_t us_init = measure_init();
 
-	l4_uint64_t us_start = measure_start();
+	l4_uint64_t us_start = measure_start(0, 20000);
 
-	for (int i = 0; i < 1000; i++) {
+	for (int i = 0; i < 3; i++) {
 		do_sort();
-		result_dump = fib1(FIB_INPUT);
+		fib1(FIB_INPUT);
 		printf("step %8d\n", i);
 	}
 
