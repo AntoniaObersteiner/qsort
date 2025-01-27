@@ -17,6 +17,7 @@
 #include <l4/re/env.h>
 #include <l4/util/util.h>
 #include <l4/util/rdtsc.h>
+#include <l4/backtracer/measure.h>
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
@@ -254,17 +255,9 @@ void do_sort(void) {
 volatile int result_dump;
 
 int main (void) {
-	l4_cpu_time_t time_main = l4_rdtsc ();
-	// this task is modified so it runs between second 1 and 10
-	// (where the backtracer does its backtracing).
-	// it prints how much time it needed to reflect the backtracer's use of cpu.
+	l4_uint64_t us_init = measure_init();
 
-	// might not be necessary if backtracer also else does it, but won't hurt
-	l4_calibrate_tsc(l4re_kip());
-
-	l4_usleep(1200000); // 1.2 seconds, backtracer sleeps for 1.0
-
-	l4_cpu_time_t time_start = l4_rdtsc ();
+	l4_uint64_t us_start = measure_start();
 
 	for (int i = 0; i < 1000; i++) {
 		do_sort();
@@ -272,18 +265,7 @@ int main (void) {
 		printf("step %8d\n", i);
 	}
 
-	l4_cpu_time_t time_stop = l4_rdtsc ();
+	l4_uint64_t us_stop = measure_stop();
 
-	l4_uint64_t us_main  = l4_tsc_to_us (time_main);
-	l4_uint64_t us_start = l4_tsc_to_us (time_start);
-	l4_uint64_t us_stop  = l4_tsc_to_us (time_stop);
-
-	printf("abs time main %16llx us\n", us_main);
-	printf("=!=!= [start] %16llx us\n", us_start);
-	printf("=!=!= [stop]  %16llx us\n", us_stop);
-	printf("start to stop %16llx us\n", us_stop  - us_start);
-
-	printf("      [start] %16.3f s\n", (double) (us_start - us_main)  / 1000000.0);
-	printf("      [stop]  %16.3f s\n", (double) (us_stop  - us_main)  / 1000000.0);
-	printf("start to stop %16.3f s\n", (double) (us_stop  - us_start) / 1000000.0);
+	measure_print(us_init, us_start, us_stop);
 }
