@@ -267,5 +267,5 @@ int main (void) {
 	}
 
 	l4_uint64_t us_stop = measure_stop();
-	measure_print(us_init, us_start, us_stop);
+	measure_print("qsort", us_init, us_start, us_stop);
 }
