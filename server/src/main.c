@@ -18,6 +18,8 @@
 #include <l4/util/util.h>
 #include <l4/util/rdtsc.h>
 #include <l4/backtracer/measure.h>
+// set by the backtracer measure.py script to automate overhead measurements
+#include <l4/backtracer/measure_defaults.h>
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
@@ -256,8 +258,7 @@ volatile int result_dump;
 
 int main (void) {
 	l4_uint64_t us_init = measure_init();
-
-	l4_uint64_t us_start = measure_start(0, 20000);
+	l4_uint64_t us_start = measure_start(us_sleep_before_tracing, us_trace_interval);
 
 	for (int i = 0; i < 3; i++) {
 		do_sort();
@@ -266,6 +267,5 @@ int main (void) {
 	}
 
 	l4_uint64_t us_stop = measure_stop();
-
 	measure_print(us_init, us_start, us_stop);
 }
