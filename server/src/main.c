@@ -17,9 +17,9 @@
 #include <l4/re/env.h>
 #include <l4/util/util.h>
 #include <l4/util/rdtsc.h>
-#include <l4/backtracer/measure.h>
 // set by the backtracer measure.py script to automate overhead measurements
 #include <l4/backtracer/measure_defaults.h>
+#include <l4/backtracer/measure.h>
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
@@ -30,10 +30,11 @@ void random_values(long * values, size_t length);
 bool is_sorted(long * values, size_t length);
 long fib2(long n);
 long fib1(long n);
+void dl_stuff(void);
 
 #define FIB_INPUT		(1l << 32)
 #define FIB_REPS		(1l <<  3)
-#define VALUES_LENGTH	(1l << 13)
+#define VALUES_LENGTH	(1l << 15)
 #define QSORT_REPS		(1l <<  3)
 long VALUES[VALUES_LENGTH];
 
@@ -209,16 +210,16 @@ long fib1(long n) {
 	printf("fib(%ld) == %ld\n", n, fib2(n));
 }
 
-void dl_stuff() {
+void dl_stuff(void) {
 	char * error;
 
 	dlerror(); // clear error
 	printf("started\n");
 	void * main_program_handle = dlopen(NULL, RTLD_LAZY);
-	if (error = dlerror()) { printf("dl error (main): %s\n", error); } else {
+	if ((error = dlerror())) { printf("dl error (main): %s\n", error); } else {
 		printf("main program handle: %p\n", main_program_handle);
 		void * dl_printf = dlsym(main_program_handle, "printf");
-		if (error = dlerror()) { printf("dl error (printf): %s\n", error); } else {
+		if ((error = dlerror())) { printf("dl error (printf): %s\n", error); } else {
 			printf("printf is at %p, dl finds it at %p\n", &printf, dl_printf);
 		}
 	}
@@ -227,10 +228,10 @@ void dl_stuff() {
 	const char * lib_name = "rom/libdl.so";
 	const char * function_name = "dlerror";
 	void * handle = dlopen(lib_name, RTLD_LAZY);
-	if (error = dlerror()) { printf("dl error (%s): %s\n", lib_name, error); } else {
+	if ((error = dlerror())) { printf("dl error (%s): %s\n", lib_name, error); } else {
 		printf("handle: %p\n", handle);
 		void * dl_function = dlsym(handle, function_name);
-		if (error = dlerror()) { printf("dl error (%s): %s\n", function_name, error); } else {
+		if ((error = dlerror())) { printf("dl error (%s): %s\n", function_name, error); } else {
 			printf("%s is at ?, dl finds it at %p\n", function_name, dl_function);
 		}
 	}
@@ -238,7 +239,7 @@ void dl_stuff() {
 	/*
 	printf("using pseudo-handle RTLD_NEXT\n");
 	void * dl_function = dlsym(RTLD_NEXT, function_name);
-	if (error = dlerror()) { printf("dl error (%s): %s\n", function_name, error); } else {
+	if ((error = dlerror())) { printf("dl error (%s): %s\n", function_name, error); } else {
 		printf("%s is at ?, dl finds it at %p\n", function_name, dl_function);
 	}
 	*/
@@ -254,18 +255,21 @@ void do_sort(void) {
 		">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
 	);
 }
-volatile int result_dump;
+
+int workload (void *, l4_uint64_t i) {
+	do_sort();
+	// fib1(FIB_INPUT);
+	if (app_prints_steps)
+		printf("step %8lld\n", i);
+}
 
 int main (void) {
 	l4_uint64_t us_init = measure_init();
-	l4_uint64_t us_start = measure_start(us_sleep_before_tracing, us_trace_interval);
-
-	for (int i = 0; i < 3; i++) {
-		do_sort();
-		fib1(FIB_INPUT);
-		printf("step %8d\n", i);
-	}
-
-	l4_uint64_t us_stop = measure_stop();
-	measure_print("qsort", us_init, us_start, us_stop);
+	measure_loop(
+		&workload,
+		NULL,
+		10,
+		us_init,
+		"qsort"
+	);
 }
