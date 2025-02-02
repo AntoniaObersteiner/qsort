@@ -207,7 +207,9 @@ long fib2(long n) {
 }
 
 long fib1(long n) {
-	printf("fib(%ld) == %ld\n", n, fib2(n));
+	long f = fib2(n);
+	printf("fib(%ld) == %ld\n", n, f);
+	return f;
 }
 
 void dl_stuff(void) {
@@ -261,6 +263,7 @@ int workload (void *, l4_uint64_t i) {
 	// fib1(FIB_INPUT);
 	if (app_prints_steps)
 		printf("step %8lld\n", i);
+	return 0;
 }
 
 int main (void) {
