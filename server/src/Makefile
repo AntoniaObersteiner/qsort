@@ -4,7 +4,7 @@ L4DIR		?= $(PKGDIR)/../..
 TARGET		= qsort
 SRC_C		= main.c
 
-CFLAGS		= -O0 -fno-inline-small-functions -fno-inline #-fno-optimize-sibling-calls
+CFLAGS		= -O0 -fno-inline-small-functions -fno-inline -fno-optimize-sibling-calls
 
 LIBS     += -ldl
 

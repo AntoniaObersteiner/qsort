@@ -60,12 +60,28 @@ void print_values(long *, size_t, size_t, size_t, long) {}
 #endif
 
 void so_qsort(long * values, size_t start, size_t stop) {
+	if (start + 1 >= stop)
+		return start;
+	if (0 && stop - start > VALUES_LENGTH / 64)
+		printf("single_sort_step [%lx .. %lx]\n", start, stop);
 	// https://codereview.stackexchange.com/questions/283932/in-place-recursive-quick-sort-in-c
-	if (start >= stop)
-		return;
 
-	long current = values[start];
-	long pivot = values[stop];
+	long a = values[start];
+	long b = values[stop];
+	size_t middle = (start + stop) / 2;
+	long c = values[middle];
+	long pivot = a, current = b;
+#if 1
+	if ((b <= a && a <= c) || (c <= a && a <= b)) {
+		// a is the middle of the three
+		pivot = a; current = b;
+	} else if ((a <= c && c <= b) || (b <= c && c <= a)) {
+		pivot = b; current = a;
+	} else if ((a <= c && c <= b) || (b <= c && c <= a)) {
+		// c is the middle of the three, swap a into the middle of the array
+		pivot = c; current = b; values[middle] = a;
+	}
+#endif
 
 	// where to put to-be-sorted elements
 	size_t front = start;
@@ -177,16 +193,18 @@ void qsort(long * values, size_t length) {
 	// my_qsort(values, 0, length);
 }
 
-void random_values(long* values, size_t length) {
-	static long current = 0x283745034;
+void __attribute__ ((noinline)) random_values(long* values, size_t length) {
+	static long current = 0x2837450344758476;
+	static const long added = 0x2450293842573;
 	for (size_t i = 0; i < length; i++) {
-		current = current >> 8;
+		current = current >> 16;
 		current = current * current;
-		current = current >> 8;
-		values[i] = current & 0xff;
+		current = current >> 16;
+		current = current + added;
+		values[i] = current & 0xffffffff;
 	}
 }
-bool is_sorted(long* values, size_t length) {
+bool __attribute__ ((noinline)) is_sorted(long* values, size_t length) {
 	for (size_t i = 1; i < length; i++) {
 		if (values[i + 1] < values[i])
 			return false;
