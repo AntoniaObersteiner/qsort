@@ -35,9 +35,7 @@ long fib1(long n);
 void dl_stuff(void);
 
 #define FIB_INPUT		(1l << 32)
-#define FIB_REPS		(1l <<  3)
-#define VALUES_LENGTH	(1l << 15)
-#define QSORT_REPS		(1l <<  3)
+#define VALUES_LENGTH	(1l << 23)
 long VALUES[VALUES_LENGTH];
 
 void swap(long * a, long * b) {
@@ -389,7 +387,7 @@ int main (void) {
 	measure_loop(
 		&workload,
 		NULL,
-		10,
+		1,
 		us_init,
 		"qsort"
 	);
