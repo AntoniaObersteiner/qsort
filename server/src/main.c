@@ -24,6 +24,8 @@
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
 void so_qsort(long * values, size_t start, size_t stop);
+void left_qsort(long * values, size_t start, size_t stop);
+void right_qsort(long * values, size_t start, size_t stop);
 void my_qsort(long * values, size_t start, size_t stop);
 void qsort(long * values, size_t length);
 void random_values(long * values, size_t length);
@@ -104,9 +106,106 @@ void so_qsort(long * values, size_t start, size_t stop) {
 		values[front] = current;
 		values[back] = pivot;
 	}
-
 	so_qsort(values, start, front);
 	so_qsort(values, back, stop);
+}
+
+void left_qsort(long * values, size_t start, size_t stop) {
+	if (start + 1 >= stop)
+		return;
+	if (0 && stop - start > VALUES_LENGTH / 64)
+		printf("single_sort_step [%lx .. %lx]\n", start, stop);
+	// https://codereview.stackexchange.com/questions/283932/in-place-recursive-quick-sort-in-c
+
+	long a = values[start];
+	long b = values[stop];
+	size_t middle = (start + stop) / 2;
+	long c = values[middle];
+	long pivot = a, current = b;
+#if 1
+	if ((b <= a && a <= c) || (c <= a && a <= b)) {
+		// a is the middle of the three
+		pivot = a; current = b;
+	} else if ((a <= c && c <= b) || (b <= c && c <= a)) {
+		pivot = b; current = a;
+	} else if ((a <= c && c <= b) || (b <= c && c <= a)) {
+		// c is the middle of the three, swap a into the middle of the array
+		pivot = c; current = b; values[middle] = a;
+	}
+#endif
+
+	// where to put to-be-sorted elements
+	size_t front = start;
+	size_t back  = stop;
+
+	while (front + 1 < back) {
+		if (current >= pivot) {
+			values[back] = current;
+			current = values[--back];
+		} else {
+			values[front] = current;
+			current = values[++front];
+		}
+	}
+
+	if (current >= pivot) {
+		values[front] = pivot;
+		values[back] = current;
+	} else {
+		values[front] = current;
+		values[back] = pivot;
+	}
+	left_qsort(values, start, front);
+	right_qsort(values, back, stop);
+}
+
+void right_qsort(long * values, size_t start, size_t stop) {
+	if (start + 1 >= stop)
+		return;
+	if (0 && stop - start > VALUES_LENGTH / 64)
+		printf("single_sort_step [%lx .. %lx]\n", start, stop);
+	// https://codereview.stackexchange.com/questions/283932/in-place-recursive-quick-sort-in-c
+
+	long a = values[start];
+	long b = values[stop];
+	size_t middle = (start + stop) / 2;
+	long c = values[middle];
+	long pivot = a, current = b;
+#if 1
+	if ((b <= a && a <= c) || (c <= a && a <= b)) {
+		// a is the middle of the three
+		pivot = a; current = b;
+	} else if ((a <= c && c <= b) || (b <= c && c <= a)) {
+		// c is the middle of the three, swap a into the middle of the array
+		pivot = c; current = b; values[middle] = a;
+	} else if ((a <= c && c <= b) || (b <= c && c <= a)) {
+		pivot = b; current = a;
+	}
+#endif
+
+	// where to put to-be-sorted elements
+	size_t front = start;
+	size_t back  = stop;
+
+	while (front + 1 < back) {
+		if (current > pivot) {
+			values[back] = current;
+			current = values[--back];
+		} else {
+			values[front] = current;
+			current = values[++front];
+		}
+	}
+
+	if (current > pivot) {
+		values[front] = pivot;
+		values[back] = current;
+	} else {
+		values[front] = current;
+		values[back] = pivot;
+	}
+	left_qsort(values, start, front);
+	right_qsort(values, back, stop);
 }
 
 void my_qsort(long * values, size_t start, size_t stop) {
@@ -189,7 +288,8 @@ void my_qsort(long * values, size_t start, size_t stop) {
 }
 
 void qsort(long * values, size_t length) {
-	so_qsort(values, 0, length - 1);
+	left_qsort(values, 0, length - 1);
+	// so_qsort(values, 0, length - 1);
 	// my_qsort(values, 0, length);
 }
 
