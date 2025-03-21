@@ -86,14 +86,17 @@ void so_qsort(long * values, size_t start, size_t stop) {
 	// where to put to-be-sorted elements
 	size_t front = start;
 	size_t back  = stop;
+	size_t pivot_counter = 1;
 
 	while (front + 1 < back) {
-		if (current >= pivot) {
+		if (current > pivot) {
 			values[back] = current;
 			current = values[--back];
-		} else {
+		} else if (current < pivot) {
 			values[front] = current;
 			current = values[++front];
+		} else {
+			pivot_counter ++;
 		}
 	}
 
@@ -104,6 +107,10 @@ void so_qsort(long * values, size_t start, size_t stop) {
 		values[front] = current;
 		values[back] = pivot;
 	}
+	for (int i = 0; i < pivot_counter; i++) {
+		values[++front] = pivot;
+	}
+	front--;
 	so_qsort(values, start, front);
 	so_qsort(values, back, stop);
 }
@@ -135,14 +142,17 @@ void left_qsort(long * values, size_t start, size_t stop) {
 	// where to put to-be-sorted elements
 	size_t front = start;
 	size_t back  = stop;
+	size_t pivot_counter = 1;
 
 	while (front + 1 < back) {
-		if (current >= pivot) {
+		if (current > pivot) {
 			values[back] = current;
 			current = values[--back];
-		} else {
+		} else if (current < pivot) {
 			values[front] = current;
 			current = values[++front];
+		} else {
+			pivot_counter ++;
 		}
 	}
 
@@ -153,6 +163,10 @@ void left_qsort(long * values, size_t start, size_t stop) {
 		values[front] = current;
 		values[back] = pivot;
 	}
+	for (int i = 0; i < pivot_counter; i++) {
+		values[++front] = pivot;
+	}
+	front--;
 	left_qsort(values, start, front);
 	right_qsort(values, back, stop);
 }
@@ -184,14 +198,17 @@ void right_qsort(long * values, size_t start, size_t stop) {
 	// where to put to-be-sorted elements
 	size_t front = start;
 	size_t back  = stop;
+	size_t pivot_counter = 1;
 
 	while (front + 1 < back) {
 		if (current > pivot) {
 			values[back] = current;
 			current = values[--back];
-		} else {
+		} else if (current < pivot) {
 			values[front] = current;
 			current = values[++front];
+		} else {
+			pivot_counter ++;
 		}
 	}
 
@@ -202,6 +219,10 @@ void right_qsort(long * values, size_t start, size_t stop) {
 		values[front] = current;
 		values[back] = pivot;
 	}
+	for (int i = 0; i < pivot_counter; i++) {
+		values[++front] = pivot;
+	}
+	front--;
 	left_qsort(values, start, front);
 	right_qsort(values, back, stop);
 }
