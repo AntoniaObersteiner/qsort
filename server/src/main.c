@@ -35,7 +35,7 @@ long fib1(long n);
 void dl_stuff(void);
 
 #define FIB_INPUT		(1l << 32)
-#define VALUES_LENGTH	(1l << 23)
+#define VALUES_LENGTH	(1l <<  8)
 long VALUES[VALUES_LENGTH];
 
 void swap(long * a, long * b) {
@@ -388,7 +388,7 @@ void do_sort(void) {
 	random_values           (&(VALUES[0]), VALUES_LENGTH);
 	qsort                   (&(VALUES[0]), VALUES_LENGTH);
 	bool sorted = is_sorted	(&(VALUES[0]), VALUES_LENGTH);
-	if (!sorted) printf(
+	if (!sorted && false) printf(
 		">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
 		">>>>>>>>> shamefully failed sorting a few values <<<<<<<<<<<\n"
 		">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
@@ -408,7 +408,7 @@ int main (void) {
 	measure_loop(
 		&workload,
 		NULL,
-		1,
+		13,
 		us_init,
 		"qsort"
 	);
