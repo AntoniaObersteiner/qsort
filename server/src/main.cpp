@@ -17,6 +17,7 @@
 #include <l4/re/env.h>
 #include <l4/util/util.h>
 #include <l4/util/rdtsc.h>
+#include <thread>
 // set by the backtracer measure.py script to automate overhead measurements
 #include <l4/backtracer/measure_defaults.h>
 #include <l4/backtracer/measure.h>
@@ -33,6 +34,7 @@ bool is_sorted(long * values, size_t length);
 long fib2(long n);
 long fib1(long n);
 void dl_stuff(void);
+static void thread_migrate(l4_umword_t cpu);
 
 #define FIB_INPUT		(1l << 32)
 #define VALUES_LENGTH	(1l <<  8)
@@ -227,6 +229,72 @@ void right_qsort(long * values, size_t start, size_t stop) {
 	right_qsort(values, back, stop);
 }
 
+void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_for_spawn) {
+	if (start + 1 >= stop)
+		return;
+	if (0 && stop - start > VALUES_LENGTH / 64)
+		printf("single_sort_step [%lx .. %lx]\n", start, stop);
+	// https://codereview.stackexchange.com/questions/283932/in-place-recursive-quick-sort-in-c
+
+	long a = values[start];
+	long b = values[stop];
+	size_t middle = (start + stop) / 2;
+	long c = values[middle];
+	long pivot = a, current = b;
+#if 1
+	if ((b <= a && a <= c) || (c <= a && a <= b)) {
+		// a is the middle of the three
+		pivot = a; current = b;
+	} else if ((a <= c && c <= b) || (b <= c && c <= a)) {
+		// c is the middle of the three, swap a into the middle of the array
+		pivot = c; current = b; values[middle] = a;
+	} else if ((a <= c && c <= b) || (b <= c && c <= a)) {
+		pivot = b; current = a;
+	}
+#endif
+
+	// where to put to-be-sorted elements
+	size_t front = start;
+	size_t back  = stop;
+	size_t pivot_counter = 1;
+
+	while (front + 1 < back) {
+		if (current > pivot) {
+			values[back] = current;
+			current = values[--back];
+		} else if (current < pivot) {
+			values[front] = current;
+			current = values[++front];
+		} else {
+			pivot_counter ++;
+		}
+	}
+
+	if (current > pivot) {
+		values[front] = pivot;
+		values[back] = current;
+	} else {
+		values[front] = current;
+		values[back] = pivot;
+	}
+	for (int i = 0; i < pivot_counter; i++) {
+		values[++front] = pivot;
+	}
+	front--;
+
+	if (stop - start < min_size_for_spawn) {
+		left_qsort(values, start, front);
+		right_qsort(values, back, stop);
+	} else {
+		printf("splitting into two threads: [%5ld..%5ld] and [%5ld..%5ld]", start, front, back, stop);
+		std::thread left  { parallel_qsort, values, start, front, min_size_for_spawn };
+		std::thread right { parallel_qsort, values,  back, stop,  min_size_for_spawn };
+
+		left.join();
+		right.join();
+	}
+}
+
 void my_qsort(long * values, size_t start, size_t stop) {
 	if (stop - start <= 1)
 		return;
@@ -307,7 +375,8 @@ void my_qsort(long * values, size_t start, size_t stop) {
 }
 
 void qsort(long * values, size_t length) {
-	left_qsort(values, 0, length - 1);
+	parallel_qsort(values, 0, length - 1, length / 4);
+	// left_qsort(values, 0, length - 1);
 	// so_qsort(values, 0, length - 1);
 	// my_qsort(values, 0, length);
 }
@@ -408,8 +477,24 @@ int main (void) {
 	measure_loop(
 		&workload,
 		NULL,
-		13,
+		3600,
 		us_init,
 		"qsort"
 	);
 }
+
+// Migrate and pin a thread to a specific CPU
+static void thread_migrate(l4_umword_t cpu) {
+	// Cannot use pthread_setaffinity_np here. It ignores CPUs with id >= 64.
+	// 2 is the default pthread priority in L4.
+	auto sp = l4_sched_param(2);
+	sp.affinity = l4_sched_cpu_set(cpu, 0);
+	if (l4_error(
+		L4Re::Env::env()->scheduler()->run_thread(
+			Pthread::L4::cap(pthread_self()), sp
+		)
+	)) {
+		throw std::runtime_error{"failed to migrate thread"};
+	}
+}
+
