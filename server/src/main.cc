@@ -498,7 +498,7 @@ int main () {
 	measure_loop(
 		&workload,
 		NULL,
-		3600,
+		6,
 		us_init,
 		"qsort"
 	);
