@@ -15,25 +15,33 @@
 #include <dlfcn.h>
 #include <l4/sys/kip.h>
 #include <l4/re/env.h>
+#include <l4/re/env>
 #include <l4/util/util.h>
 #include <l4/util/rdtsc.h>
+#include <l4/sys/thread>
+#include <l4/sys/scheduler>
+#include <pthread-l4.h>
 #include <thread>
+#include <stdexcept>
 // set by the backtracer measure.py script to automate overhead measurements
 #include <l4/backtracer/measure_defaults.h>
 #include <l4/backtracer/measure.h>
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
-void so_qsort(long * values, size_t start, size_t stop);
-void left_qsort(long * values, size_t start, size_t stop);
-void right_qsort(long * values, size_t start, size_t stop);
-void my_qsort(long * values, size_t start, size_t stop);
+void so_qsort      (long * values, size_t start, size_t stop);
+void left_qsort    (long * values, size_t start, size_t stop);
+void right_qsort   (long * values, size_t start, size_t stop);
+void my_qsort      (long * values, size_t start, size_t stop);
+void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_for_spawn, size_t cpu);
+void do_sort(void);
 void qsort(long * values, size_t length);
 void random_values(long * values, size_t length);
 bool is_sorted(long * values, size_t length);
 long fib2(long n);
 long fib1(long n);
 void dl_stuff(void);
+int workload(void*, l4_uint64_t);
 static void thread_migrate(l4_umword_t cpu);
 
 #define FIB_INPUT		(1l << 32)
@@ -63,7 +71,7 @@ void print_values(long *, size_t, size_t, size_t, long) {}
 
 void so_qsort(long * values, size_t start, size_t stop) {
 	if (start + 1 >= stop)
-		return start;
+		return;
 	if (0 && stop - start > VALUES_LENGTH / 64)
 		printf("single_sort_step [%lx .. %lx]\n", start, stop);
 	// https://codereview.stackexchange.com/questions/283932/in-place-recursive-quick-sort-in-c
@@ -109,7 +117,7 @@ void so_qsort(long * values, size_t start, size_t stop) {
 		values[front] = current;
 		values[back] = pivot;
 	}
-	for (int i = 0; i < pivot_counter; i++) {
+	for (size_t i = 0; i < pivot_counter; i++) {
 		values[++front] = pivot;
 	}
 	front--;
@@ -165,7 +173,7 @@ void left_qsort(long * values, size_t start, size_t stop) {
 		values[front] = current;
 		values[back] = pivot;
 	}
-	for (int i = 0; i < pivot_counter; i++) {
+	for (size_t i = 0; i < pivot_counter; i++) {
 		values[++front] = pivot;
 	}
 	front--;
@@ -221,7 +229,7 @@ void right_qsort(long * values, size_t start, size_t stop) {
 		values[front] = current;
 		values[back] = pivot;
 	}
-	for (int i = 0; i < pivot_counter; i++) {
+	for (size_t i = 0; i < pivot_counter; i++) {
 		values[++front] = pivot;
 	}
 	front--;
@@ -229,9 +237,11 @@ void right_qsort(long * values, size_t start, size_t stop) {
 	right_qsort(values, back, stop);
 }
 
-void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_for_spawn) {
+void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_for_spawn, size_t cpu) {
 	if (start + 1 >= stop)
 		return;
+
+	thread_migrate(cpu);
 	if (0 && stop - start > VALUES_LENGTH / 64)
 		printf("single_sort_step [%lx .. %lx]\n", start, stop);
 	// https://codereview.stackexchange.com/questions/283932/in-place-recursive-quick-sort-in-c
@@ -277,7 +287,7 @@ void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_fo
 		values[front] = current;
 		values[back] = pivot;
 	}
-	for (int i = 0; i < pivot_counter; i++) {
+	for (size_t i = 0; i < pivot_counter; i++) {
 		values[++front] = pivot;
 	}
 	front--;
@@ -287,8 +297,9 @@ void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_fo
 		right_qsort(values, back, stop);
 	} else {
 		printf("splitting into two threads: [%5ld..%5ld] and [%5ld..%5ld]", start, front, back, stop);
-		std::thread left  { parallel_qsort, values, start, front, min_size_for_spawn };
-		std::thread right { parallel_qsort, values,  back, stop,  min_size_for_spawn };
+		std::thread left  { parallel_qsort, values, start, front, min_size_for_spawn, cpu };
+		// TODO: better spreading of cpus
+		std::thread right { parallel_qsort, values,  back, stop,  min_size_for_spawn, (cpu + 1) % 4 };
 
 		left.join();
 		right.join();
@@ -375,7 +386,7 @@ void my_qsort(long * values, size_t start, size_t stop) {
 }
 
 void qsort(long * values, size_t length) {
-	parallel_qsort(values, 0, length - 1, length / 4);
+	parallel_qsort(values, 0, length - 1, length / 10, 0);
 	// left_qsort(values, 0, length - 1);
 	// so_qsort(values, 0, length - 1);
 	// my_qsort(values, 0, length);
@@ -472,7 +483,7 @@ int workload (void *, l4_uint64_t i) {
 	return 0;
 }
 
-int main (void) {
+int main () {
 	l4_uint64_t us_init = measure_init();
 	measure_loop(
 		&workload,
