@@ -54,6 +54,9 @@ void swap(long * a, long * b) {
 	*b = temp;
 }
 
+#define DEBUG 1
+#define dbg_verbose 0
+
 #if DEBUG
 void print_values(long * values, size_t length, size_t start, size_t stop, long current) {
 	for (size_t i = 0; i < length; i++) {
@@ -177,6 +180,7 @@ void left_qsort(long * values, size_t start, size_t stop) {
 		values[++front] = pivot;
 	}
 	front--;
+	if (dbg_verbose) printf("[%5ld..%5ld]: end of left_qsort\n", start, stop);
 	left_qsort(values, start, front);
 	right_qsort(values, back, stop);
 }
@@ -233,6 +237,7 @@ void right_qsort(long * values, size_t start, size_t stop) {
 		values[++front] = pivot;
 	}
 	front--;
+	if (dbg_verbose) printf("[%5ld..%5ld]: end of right_qsort\n", start, stop);
 	left_qsort(values, start, front);
 	right_qsort(values, back, stop);
 }
@@ -241,6 +246,7 @@ void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_fo
 	if (start + 1 >= stop)
 		return;
 
+	if (dbg_verbose) printf("[%5ld..%5ld]: thread_migrate(%ld)\n", start, stop, cpu);
 	thread_migrate(cpu);
 	if (0 && stop - start > VALUES_LENGTH / 64)
 		printf("single_sort_step [%lx .. %lx]\n", start, stop);
@@ -292,11 +298,15 @@ void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_fo
 	}
 	front--;
 
+	if (dbg_verbose) printf("[%5ld..%5ld]: end of parallel\n", start, stop);
 	if (stop - start < min_size_for_spawn) {
 		left_qsort(values, start, front);
 		right_qsort(values, back, stop);
 	} else {
-		printf("splitting into two threads: [%5ld..%5ld] and [%5ld..%5ld]", start, front, back, stop);
+		if (dbg_verbose) printf(
+			"[%5ld..%5ld]: splitting into two threads: [%5ld..%5ld] and [%5ld..%5ld]\n",
+			start, stop, start, front, back, stop
+		);
 		std::thread left  { parallel_qsort, values, start, front, min_size_for_spawn, cpu };
 		// TODO: better spreading of cpus
 		std::thread right { parallel_qsort, values,  back, stop,  min_size_for_spawn, (cpu + 1) % 4 };
