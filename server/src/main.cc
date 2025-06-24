@@ -32,7 +32,7 @@ void so_qsort      (long * values, size_t start, size_t stop);
 void left_qsort    (long * values, size_t start, size_t stop);
 void right_qsort   (long * values, size_t start, size_t stop);
 void my_qsort      (long * values, size_t start, size_t stop);
-void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_for_spawn, size_t cpu);
+void parallel_qsort(long * values, size_t start, size_t stop, size_t depth, size_t cpu);
 void do_sort(void);
 void qsort(long * values, size_t length);
 void random_values(long * values, size_t length);
@@ -44,7 +44,7 @@ int workload(void*, l4_uint64_t);
 static void thread_migrate(l4_umword_t cpu);
 
 #define FIB_INPUT		(1l << 32)
-#define VALUES_LENGTH	(1l <<  8)
+#define VALUES_LENGTH	(1l << 12)
 long VALUES[VALUES_LENGTH];
 
 void swap(long * a, long * b) {
@@ -241,7 +241,7 @@ void right_qsort(long * values, size_t start, size_t stop) {
 	right_qsort(values, back, stop);
 }
 
-void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_for_spawn, size_t cpu) {
+void parallel_qsort(long * values, size_t start, size_t stop, size_t depth, size_t cpu) {
 	if (start + 1 >= stop)
 		return;
 
@@ -298,7 +298,7 @@ void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_fo
 	front--;
 
 	if (dbg_verbose) printf("[%5ld..%5ld]: end of parallel\n", start, stop);
-	if (stop - start < min_size_for_spawn) {
+	if (depth) {
 		left_qsort(values, start, front);
 		right_qsort(values, back, stop);
 	} else {
@@ -306,9 +306,9 @@ void parallel_qsort(long * values, size_t start, size_t stop, size_t min_size_fo
 			"[%5ld..%5ld]: splitting into two threads: [%5ld..%5ld] and [%5ld..%5ld]\n",
 			start, stop, start, front, back, stop
 		);
-		std::thread left  { parallel_qsort, values, start, front, min_size_for_spawn, cpu };
+		std::thread left  { parallel_qsort, values, start, front, depth - 1, cpu };
 		// TODO: better spreading of cpus
-		std::thread right { parallel_qsort, values,  back, stop,  min_size_for_spawn, (cpu + 1) % 4 };
+		std::thread right { parallel_qsort, values,  back, stop,  depth - 1, (cpu + 1) % 4 };
 
 		left.join();
 		right.join();
@@ -395,7 +395,7 @@ void my_qsort(long * values, size_t start, size_t stop) {
 }
 
 void qsort(long * values, size_t length) {
-	parallel_qsort(values, 0, length - 1, length / 10, 0);
+	parallel_qsort(values, 0, length - 1, 2, 0);
 	// left_qsort(values, 0, length - 1);
 	// so_qsort(values, 0, length - 1);
 	// my_qsort(values, 0, length);
@@ -409,7 +409,7 @@ void __attribute__ ((noinline)) random_values(long* values, size_t length) {
 		current = current * current;
 		current = current >> 16;
 		current = current + added;
-		values[i] = current & 0xffffffff;
+		values[i] = current;
 	}
 }
 bool __attribute__ ((noinline)) is_sorted(long* values, size_t length) {
