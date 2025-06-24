@@ -23,9 +23,8 @@
 #include <pthread-l4.h>
 #include <thread>
 #include <stdexcept>
-// set by the backtracer measure.py script to automate overhead measurements
-#include <l4/backtracer/measure_defaults.h>
-#include <l4/backtracer/measure.h>
+
+#include <l4/backtracer/btb_control.h>
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
@@ -485,23 +484,27 @@ void do_sort(void) {
 	);
 }
 
+// this function is structured to work with <l4/backtracer/measure.h>
 int workload (void *, l4_uint64_t i) {
 	do_sort();
 	// fib1(FIB_INPUT);
-	if (app_prints_steps)
-		printf("step %8lld\n", i);
 	return 0;
 }
 
 int main () {
-	l4_uint64_t us_init = measure_init();
-	measure_loop(
-		&workload,
-		NULL,
-		6,
-		us_init,
-		"qsort"
-	);
+	l4_uint64_t trace_interval_us = 1000;
+	l4_debugger_backtracing_set_timestep(dbg_cap, trace_interval_us);
+	l4_debugger_backtracing_start(dbg_cap);
+
+	for (int step = 0; step < 20; step++) {
+		workload(NULL, step);
+	}
+
+	l4_debugger_backtracing_stop(dbg_cap);
+	// write the histogram of how long differently deep stacks took
+	l4_debugger_backtracing_write_stats(dbg_cap);
+	// tell the exporter (the userspace program backtracer) to export
+	l4_debugger_backtracing_set_ready_for_export(dbg_cap, true);
 }
 
 // Migrate and pin a thread to a specific CPU
