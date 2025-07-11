@@ -22,6 +22,7 @@
 #include <l4/sys/scheduler>
 #include <pthread-l4.h>
 #include <thread>
+#include <vector>
 #include <stdexcept>
 
 #include <l4/backtracer/btb_control.h>
@@ -40,7 +41,6 @@ bool is_sorted(long * values, size_t length);
 long fib2(long n);
 long fib1(long n);
 void dl_stuff(void);
-int workload(void*, l4_uint64_t);
 static void thread_migrate(l4_umword_t cpu);
 
 #define FIB_INPUT		(1l << 32)
@@ -485,26 +485,69 @@ void do_sort(void) {
 }
 
 // this function is structured to work with <l4/backtracer/measure.h>
-int workload (void *, l4_uint64_t i) {
-	do_sort();
-	// fib1(FIB_INPUT);
+static int workload (l4_uint64_t cpu_id, l4_uint64_t steps, l4_uint64_t * started) {
+	thread_migrate(cpu_id);
+	*started = true;
+	for (l4_uint64_t step = 0; step < steps; step++) {
+		do_sort();
+		// fib1(FIB_INPUT);
+	}
 	return 0;
 }
 
-int main () {
+int main (int argc, const char ** argv) {
+	l4_uint64_t cpu_count = 1;
+	if (argc > 1) {
+		if (argc > 2) {
+			printf("too many args, just takes one integer!\n");
+			return 1;
+		}
+		const char * cpu_count_arg = argv[1];
+		char * end;
+		l4_uint64_t value = strtol(cpu_count_arg, &end, 10);
+		if (*end == '\0') {
+			cpu_count = value;
+		} else {
+			printf("uninterpretable cpu id: '%s'\n", argv[1]);
+			return 1;
+		}
+	}
+	l4_uint64_t steps = 1000;
 	l4_uint64_t trace_interval_us = 1000;
 	l4_debugger_backtracing_set_timestep(dbg_cap, trace_interval_us);
-	l4_debugger_backtracing_start(dbg_cap);
 
-	for (int step = 0; step < 20; step++) {
-		workload(NULL, step);
+	// start threads
+	std::vector<std::thread> threads;
+	std::vector<l4_uint64_t> started (cpu_count, 0); // used as if bool!
+	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
+		threads.emplace_back(workload, (l4_uint64_t) cpu_id, (l4_uint64_t) steps, &started[cpu_id]);
 	}
 
-	l4_debugger_backtracing_stop(dbg_cap);
-	// write the histogram of how long differently deep stacks took
-	l4_debugger_backtracing_write_stats(dbg_cap);
-	// tell the exporter (the userspace program backtracer) to export
-	l4_debugger_backtracing_set_ready_for_export(dbg_cap, true);
+	// wait until threads have migrated
+	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
+		while (!started[cpu_id]) {
+			usleep(1000);
+		}
+	}
+
+	// start backtracer
+	l4_debugger_backtracing_start(dbg_cap);
+
+	bool stopped = false;
+	// join threads
+	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
+		threads[cpu_id].join();
+		if (!stopped) {
+			// stop writing trace entries (kernel-side)
+			l4_debugger_backtracing_stop(dbg_cap);
+			// write the histogram of how long differently deep stacks took
+			l4_debugger_backtracing_write_stats(dbg_cap);
+			// tell the exporter (the userspace program backtracer) to export
+			l4_debugger_backtracing_set_ready_for_export(dbg_cap, true);
+
+			stopped = true;
+		}
+	}
 }
 
 // Migrate and pin a thread to a specific CPU
