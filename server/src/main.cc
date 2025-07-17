@@ -490,7 +490,7 @@ static int workload (l4_uint64_t cpu_id, l4_uint64_t steps, l4_uint64_t * starte
 	if (DEBUG) printf("migrating qsort to cpu %lld...\n", cpu_id);
 	thread_migrate(cpu_id);
 	*started = true;
-	if (DEBUG) printf("started qsort to cpu %lld...\n", cpu_id);
+	if (DEBUG) printf("started qsort on cpu %lld...\n", cpu_id);
 	for (l4_uint64_t step = 0; step < steps; step++) {
 		// printf("qsort cpu %lld, step %lld\n", cpu_id, step);
 		do_sort(cpu_id);
@@ -517,24 +517,24 @@ int main (int argc, const char ** argv) {
 		}
 	}
 	l4_uint64_t steps = 1000;
-	l4_uint64_t trace_interval_us = 1000;
+	l4_uint64_t trace_interval_us = 10000;
 	l4_debugger_backtracing_set_timestep(dbg_cap, trace_interval_us);
 
 	// start threads
 	std::vector<std::thread> threads;
 	std::vector<l4_uint64_t> started (cpu_count, 0); // used as if bool!
 	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
-		if (DEBUG) printf("spawning qsort for cpu %lld", cpu_id);
+		if (DEBUG) printf("spawning qsort for cpu %lld\n", cpu_id);
 		threads.emplace_back(workload, (l4_uint64_t) cpu_id, (l4_uint64_t) steps, &started[cpu_id]);
 	}
 
 	// wait until threads have migrated
 	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
-		if (DEBUG) printf("awaiting qsort on cpu %lld...\n", cpu_id);
+		if (DEBUG) printf("awaiting qsort of cpu %lld...\n", cpu_id);
 		while (!started[cpu_id]) {
 			usleep(1000);
 		}
-		if (DEBUG) printf("awoken qsort on cpu %lld...\n", cpu_id);
+		if (DEBUG) printf("awoken qsort of cpu %lld...\n", cpu_id);
 	}
 
 	if (DEBUG) printf("starting kernel backtracing\n");
