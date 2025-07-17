@@ -34,7 +34,7 @@ void left_qsort    (long * values, size_t start, size_t stop);
 void right_qsort   (long * values, size_t start, size_t stop);
 void my_qsort      (long * values, size_t start, size_t stop);
 void parallel_qsort(long * values, size_t start, size_t stop, size_t depth, size_t cpu);
-void do_sort(void);
+void do_sort(l4_uint64_t cpu_id);
 void qsort(long * values, size_t length);
 void random_values(long * values, size_t length);
 bool is_sorted(long * values, size_t length);
@@ -45,7 +45,8 @@ static void thread_migrate(l4_umword_t cpu);
 
 #define FIB_INPUT		(1l << 32)
 #define VALUES_LENGTH	(1l << 12)
-long VALUES[VALUES_LENGTH];
+#define MAX_CPU_ID     4
+long VALUES[MAX_CPU_ID][VALUES_LENGTH];
 
 void swap(long * a, long * b) {
 	long temp = *a;
@@ -473,10 +474,10 @@ void dl_stuff(void) {
 	*/
 }
 
-void do_sort(void) {
-	random_values           (&(VALUES[0]), VALUES_LENGTH);
-	qsort                   (&(VALUES[0]), VALUES_LENGTH);
-	bool sorted = is_sorted	(&(VALUES[0]), VALUES_LENGTH);
+void do_sort(l4_uint64_t cpu_id) {
+	random_values           (&(VALUES[cpu_id][0]), VALUES_LENGTH);
+	qsort                   (&(VALUES[cpu_id][0]), VALUES_LENGTH);
+	bool sorted = is_sorted	(&(VALUES[cpu_id][0]), VALUES_LENGTH);
 	if (!sorted && false) printf(
 		">>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
 		">>>>>>>>> shamefully failed sorting a few values <<<<<<<<<<<\n"
@@ -491,7 +492,8 @@ static int workload (l4_uint64_t cpu_id, l4_uint64_t steps, l4_uint64_t * starte
 	*started = true;
 	if (DEBUG) printf("started qsort to cpu %lld...\n", cpu_id);
 	for (l4_uint64_t step = 0; step < steps; step++) {
-		do_sort();
+		// printf("qsort cpu %lld, step %lld\n", cpu_id, step);
+		do_sort(cpu_id);
 		// fib1(FIB_INPUT);
 	}
 	return 0;
