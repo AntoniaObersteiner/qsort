@@ -395,8 +395,8 @@ void my_qsort(long * values, size_t start, size_t stop) {
 }
 
 void qsort(long * values, size_t length) {
-	parallel_qsort(values, 0, length - 1, 2, 0);
-	// left_qsort(values, 0, length - 1);
+	// parallel_qsort(values, 0, length - 1, 2, 0);
+	left_qsort(values, 0, length - 1);
 	// so_qsort(values, 0, length - 1);
 	// my_qsort(values, 0, length);
 }
@@ -533,11 +533,11 @@ int main (int argc, const char ** argv) {
 	// start backtracer
 	l4_debugger_backtracing_start(dbg_cap);
 
-	bool stopped = false;
+	bool stopped_the_first = false;
 	// join threads
 	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
 		threads[cpu_id].join();
-		if (!stopped) {
+		if (!stopped_the_first) {
 			// stop writing trace entries (kernel-side)
 			l4_debugger_backtracing_stop(dbg_cap);
 			// write the histogram of how long differently deep stacks took
@@ -545,7 +545,7 @@ int main (int argc, const char ** argv) {
 			// tell the exporter (the userspace program backtracer) to export
 			l4_debugger_backtracing_set_ready_for_export(dbg_cap, true);
 
-			stopped = true;
+			stopped_the_first = true;
 		}
 	}
 }
