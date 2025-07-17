@@ -486,8 +486,10 @@ void do_sort(void) {
 
 // this function is structured to work with <l4/backtracer/measure.h>
 static int workload (l4_uint64_t cpu_id, l4_uint64_t steps, l4_uint64_t * started) {
+	if (DEBUG) printf("migrating qsort to cpu %lld...\n", cpu_id);
 	thread_migrate(cpu_id);
 	*started = true;
+	if (DEBUG) printf("started qsort to cpu %lld...\n", cpu_id);
 	for (l4_uint64_t step = 0; step < steps; step++) {
 		do_sort();
 		// fib1(FIB_INPUT);
@@ -520,23 +522,29 @@ int main (int argc, const char ** argv) {
 	std::vector<std::thread> threads;
 	std::vector<l4_uint64_t> started (cpu_count, 0); // used as if bool!
 	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
+		if (DEBUG) printf("spawning qsort for cpu %lld", cpu_id);
 		threads.emplace_back(workload, (l4_uint64_t) cpu_id, (l4_uint64_t) steps, &started[cpu_id]);
 	}
 
 	// wait until threads have migrated
 	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
+		if (DEBUG) printf("awaiting qsort on cpu %lld...\n", cpu_id);
 		while (!started[cpu_id]) {
 			usleep(1000);
 		}
+		if (DEBUG) printf("awoken qsort on cpu %lld...\n", cpu_id);
 	}
 
+	if (DEBUG) printf("starting kernel backtracing\n");
 	// start backtracer
 	l4_debugger_backtracing_start(dbg_cap);
 
 	bool stopped_the_first = false;
 	// join threads
 	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
+		if (DEBUG) printf("joining qsort thread on cpu %lld...\n", cpu_id);
 		threads[cpu_id].join();
+		if (DEBUG) printf("joined qsort thread on cpu %lld...\n", cpu_id);
 		if (!stopped_the_first) {
 			// stop writing trace entries (kernel-side)
 			l4_debugger_backtracing_stop(dbg_cap);
