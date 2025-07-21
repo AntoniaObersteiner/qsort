@@ -518,7 +518,6 @@ int main (int argc, const char ** argv) {
 	}
 	l4_uint64_t steps = 1000;
 	l4_uint64_t trace_interval_us = 10000;
-	l4_debugger_backtracing_set_timestep(dbg_cap, trace_interval_us);
 
 	// start threads
 	std::vector<std::thread> threads;
@@ -534,12 +533,12 @@ int main (int argc, const char ** argv) {
 		while (!started[cpu_id]) {
 			usleep(1000);
 		}
+		if (DEBUG) printf("starting kernel backtracing for cpu %lld\n", cpu_id);
+		// start backtracing for this cpu
+		l4_debugger_backtracing_cpu_mask(dbg_cap, SET, trace_interval_us, (1ull << cpu_id), 0);
+
 		if (DEBUG) printf("awoken qsort of cpu %lld...\n", cpu_id);
 	}
-
-	if (DEBUG) printf("starting kernel backtracing\n");
-	// start backtracer
-	l4_debugger_backtracing_start(dbg_cap);
 
 	bool stopped_the_first = false;
 	// join threads
@@ -547,6 +546,8 @@ int main (int argc, const char ** argv) {
 		if (DEBUG) printf("joining qsort thread on cpu %lld...\n", cpu_id);
 		threads[cpu_id].join();
 		if (DEBUG) printf("joined qsort thread on cpu %lld...\n", cpu_id);
+		// stop backtracing for this cpu (alternative way to specify the cpu)
+		l4_debugger_backtracing_cpu_mask(dbg_cap, UNSET, trace_interval_us, 1ull, cpu_id);
 		if (!stopped_the_first) {
 			// stop writing trace entries (kernel-side)
 			l4_debugger_backtracing_stop(dbg_cap);
