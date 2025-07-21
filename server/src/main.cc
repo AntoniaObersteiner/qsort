@@ -54,7 +54,7 @@ void swap(long * a, long * b) {
 	*b = temp;
 }
 
-#define DEBUG 1
+#define DEBUG 0
 #define dbg_verbose 0
 
 #if DEBUG
