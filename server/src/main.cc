@@ -26,6 +26,9 @@
 #include <stdexcept>
 
 #include <l4/backtracer/btb_control.h>
+#include <l4/backtracer/measure.h>
+#include <l4/backtracer/measure_defaults.h>
+#include <l4/backtracer/argp.h>
 
 void swap(long * a, long * b);
 void print_values(long * values, size_t length, size_t start, size_t stop, long current);
@@ -44,7 +47,7 @@ void dl_stuff(void);
 static void thread_migrate(l4_umword_t cpu);
 
 #define FIB_INPUT		(1l << 32)
-#define VALUES_LENGTH	(1l << 12)
+#define VALUES_LENGTH	(1l << 8)
 #define MAX_CPU_ID     4
 long VALUES[MAX_CPU_ID][VALUES_LENGTH];
 
@@ -485,7 +488,6 @@ void do_sort(l4_uint64_t cpu_id) {
 	);
 }
 
-// this function is structured to work with <l4/backtracer/measure.h>
 static int workload (l4_uint64_t cpu_id, l4_uint64_t steps, l4_uint64_t * started) {
 	if (DEBUG) printf("migrating qsort to cpu %lld...\n", cpu_id);
 	thread_migrate(cpu_id);
@@ -499,53 +501,85 @@ static int workload (l4_uint64_t cpu_id, l4_uint64_t steps, l4_uint64_t * starte
 	return 0;
 }
 
+// this function is structured to work with <l4/backtracer/measure.h>
+static int measure_workload (void *, [[maybe_unused]] l4_uint64_t step) {
+	l4_uint64_t cpu_id = 0;
+	// printf("qsort cpu %lld, step %lld\n", cpu_id, step);
+	do_sort(cpu_id);
+	return 0;
+}
+
 int main (int argc, const char ** argv) {
-	l4_uint64_t cpu_count = 1;
-	if (argc > 1) {
-		if (argc > 2) {
-			printf("too many args, just takes one integer!\n");
-			return 1;
-		}
-		const char * cpu_count_arg = argv[1];
-		char * end;
-		l4_uint64_t value = strtol(cpu_count_arg, &end, 10);
-		if (*end == '\0') {
-			cpu_count = value;
+	std::vector<l4_uint64_t> cpus_to_spawn_on;
+	long steps = 1000;
+	long trace_interval_us = 10000;
+	bool do_measure = false;
+	for (int a = 1; a < argc; a++) {
+		const char * arg = argv[a];
+		long cpu_id = -1;
+		bool help;
+		if (read_bool_arg(&do_measure,        arg, "--measure", 'm', 'M')) {               continue; } else
+		if (read_int_arg (&cpu_id,            arg, "--cpu"  )) { cpus_to_spawn_on.push_back(cpu_id); } else
+		if (read_int_arg (&steps,             arg, "--steps")) {                           continue; } else
+		if (read_int_arg (&trace_interval_us, arg, "--trace-interval-us")) {               continue; } else
+		if (read_bool_arg(&help,              arg, "--help",    'h',  0 )) {
+			printf(
+				"  --measure   runs the measure loops specified by backtracer/include/measure.h,\n"
+				"              ignores --cpu and --trace-interval-us.\n"
+				"  --cpu <id>  spawns the qsort thread on that cpu. may be specified several times.\n"
+				"  --steps <N> how often to sort (in each thread or measurement round).\n"
+				"  --trace-interval-us <N>\n"
+				"              how many microseconds between tracing interrupts (in the kernel).\n"
+				"  --help      print this help and exit.\n"
+				"\n"
+			);
 		} else {
-			printf("uninterpretable cpu id: '%s'\n", argv[1]);
-			return 1;
+			printf("could not read argument '%s'!", arg);
+			return -1;
 		}
 	}
-	l4_uint64_t steps = 1000;
-	l4_uint64_t trace_interval_us = 10000;
+
+	if (do_measure) {
+		measure_loop(
+			&measure_workload,
+			NULL,
+			steps,
+			"qsort"
+		);
+		return 0;
+	}
 
 	// start threads
+	l4_uint64_t thread_count = cpus_to_spawn_on.size();
 	std::vector<std::thread> threads;
-	std::vector<l4_uint64_t> started (cpu_count, 0); // used as if bool!
-	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
-		if (DEBUG) printf("spawning qsort for cpu %lld\n", cpu_id);
-		threads.emplace_back(workload, (l4_uint64_t) cpu_id, (l4_uint64_t) steps, &started[cpu_id]);
+	std::vector<l4_uint64_t> started (thread_count, 0); // used as if bool!
+	for (l4_uint64_t thread_id = 0; thread_id < thread_count; thread_id++) {
+		l4_uint64_t cpu_id = cpus_to_spawn_on[thread_id];
+		if (DEBUG) printf("spawning qsort for thread %lld on cpu %lld\n", thread_id, cpu_id);
+		threads.emplace_back(workload, cpu_id, (l4_uint64_t) steps, &started[thread_id]);
 	}
 
 	// wait until threads have migrated
-	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
-		if (DEBUG) printf("awaiting qsort of cpu %lld...\n", cpu_id);
-		while (!started[cpu_id]) {
+	for (l4_uint64_t thread_id = 0; thread_id < thread_count; thread_id++) {
+		l4_uint64_t cpu_id = cpus_to_spawn_on[thread_id];
+		if (DEBUG) printf("awaiting qsort of thread %lld...\n", thread_id);
+		while (!started[thread_id]) {
 			usleep(1000);
 		}
-		if (DEBUG) printf("starting kernel backtracing for cpu %lld\n", cpu_id);
+		if (DEBUG) printf("starting kernel backtracing for thread %lld on cpu %lld\n", thread_id, cpu_id);
 		// start backtracing for this cpu
 		l4_debugger_backtracing_cpu_mask(dbg_cap, SET, trace_interval_us, (1ull << cpu_id), 0);
 
-		if (DEBUG) printf("awoken qsort of cpu %lld...\n", cpu_id);
+		if (DEBUG) printf("awoken qsort of thread %lld...\n", thread_id);
 	}
 
 	bool stopped_the_first = false;
 	// join threads
-	for (l4_uint64_t cpu_id = 0; cpu_id < cpu_count; cpu_id++) {
-		if (DEBUG) printf("joining qsort thread on cpu %lld...\n", cpu_id);
-		threads[cpu_id].join();
-		if (DEBUG) printf("joined qsort thread on cpu %lld...\n", cpu_id);
+	for (l4_uint64_t thread_id = 0; thread_id < thread_count; thread_id++) {
+		l4_uint64_t cpu_id = cpus_to_spawn_on[thread_id];
+		if (DEBUG) printf("joining qsort thread %lld on cpu %lld...\n", thread_id, cpu_id);
+		threads[thread_id].join();
+		if (DEBUG) printf("joined qsort thread %lld on cpu %lld...\n", thread_id, cpu_id);
 		// stop backtracing for this cpu (alternative way to specify the cpu)
 		l4_debugger_backtracing_cpu_mask(dbg_cap, UNSET, trace_interval_us, 1ull, cpu_id);
 		if (!stopped_the_first) {
