@@ -504,8 +504,9 @@ static int workload (l4_uint64_t cpu_id, l4_uint64_t steps, l4_uint64_t * starte
 // this function is structured to work with <l4/backtracer/measure.h>
 static int measure_workload (void *, [[maybe_unused]] l4_uint64_t step) {
 	l4_uint64_t cpu_id = 0;
-	// printf("qsort cpu %lld, step %lld\n", cpu_id, step);
-	do_sort(cpu_id);
+	for (int i = 0; i < 5000; i++) {
+		do_sort(cpu_id);
+	}
 	return 0;
 }
 
@@ -533,6 +534,7 @@ int main (int argc, const char ** argv) {
 				"  --help      print this help and exit.\n"
 				"\n"
 			);
+			return 0;
 		} else {
 			printf("could not read argument '%s'!", arg);
 			return -1;
@@ -543,7 +545,7 @@ int main (int argc, const char ** argv) {
 		measure_loop(
 			&measure_workload,
 			NULL,
-			steps,
+			10,
 			"qsort"
 		);
 		return 0;
